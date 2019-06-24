@@ -96,11 +96,11 @@ export class Channel extends EmitterBase<ChannelEvents> {
         }
     }
 
-    public async create(channelName: string): Promise<ChannelProvider> {
+    public async create(channelName: string, options: { externalWindowName?: string}): Promise<ChannelProvider> {
         if (!channelName) {
             throw new Error('Please provide a channelName to create a channel');
         }
-        const { payload: { data: providerIdentity } } = await this.wire.sendAction('create-channel', {channelName});
+        const { payload: { data: providerIdentity } } = await this.wire.sendAction('create-channel', {channelName, options});
         const channel = new ChannelProvider(providerIdentity, this.wire.sendAction.bind(this.wire));
         const key = providerIdentity.channelId;
         this.channelMap.set(key, channel);
