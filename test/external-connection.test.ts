@@ -3,12 +3,14 @@ import { conn } from './connect';
 import * as assert from 'assert';
 import { Fin, connect as rawConnect, Identity } from '../src/main';
 import { cleanOpenRuntimes } from './multi-runtime-utils';
+import { log } from 'util';
 
 describe('External Connection', function() {
     let fin: Fin;
     let fin2: Fin;
     let incrementer = 0;
     let channelName: string;
+    let nameAlias: string;
     let externalConnectionIdentity: Identity;
 
     before(async () => {
@@ -23,6 +25,7 @@ describe('External Connection', function() {
     beforeEach(async () => {
         incrementer = incrementer + 1;
         channelName = `test-channel-${incrementer}`;
+        nameAlias = `nameAlias-${incrementer}`;
         await cleanOpenRuntimes();
     });
 
@@ -61,8 +64,6 @@ describe('External Connection', function() {
     });
 
     it('should use an external connection\'s provided nameAlias', async() => {
-        const nameAlias = 'nameAlias1';
-
         const channelProvider = await fin.InterApplicationBus.Channel.create(channelName);
         channelProvider.onConnection((connectionPayload) => {
             assert.equal(connectionPayload.name, nameAlias);
@@ -72,7 +73,6 @@ describe('External Connection', function() {
     });
 
     it('should be able to disconnect from a provider when using a nameAlias', async() => {
-        const nameAlias = 'nameAlias2';
         const channelProvider = await fin.InterApplicationBus.Channel.create(channelName);
         const channelClient = await fin2.InterApplicationBus.Channel.connect(channelName, {payload: {nameAlias}});
 
@@ -82,5 +82,33 @@ describe('External Connection', function() {
         });
 
         await channelClient.disconnect();
+    });
+
+    it('should be able to dispatch to a provider', async() => {
+        const channelProvider = await fin.InterApplicationBus.Channel.create(channelName);
+        const channelClient = await fin2.InterApplicationBus.Channel.connect(channelName);
+
+        await channelProvider.register('test-topic', (payload: string) => {
+            assert.equal(payload, 'test-payload-string');
+            return 'Test Provider Response';
+        });
+
+        const providerResponse = await channelClient.dispatch('test-topic', 'test-payload-string');
+        assert.equal(providerResponse, 'Test Provider Response');
+    });
+
+    it('should be able to dispatch to a provider using a nameAlias', async() => {
+        const channelProvider = await fin.InterApplicationBus.Channel.create(channelName);
+        const channelClient = await fin2.InterApplicationBus.Channel.connect(channelName, {payload: {nameAlias}});
+
+        await channelProvider.register('test-topic', (payload: string, payload2: any) => {
+            log('payload2');
+            log(JSON.stringify(payload2));
+            assert.equal(payload, 'test-payload-string');
+            return 'Test Provider Response';
+        });
+
+        const providerResponse = await channelClient.dispatch('test-topic', 'test-payload-string');
+        assert.equal(providerResponse, 'Test Provider Response');
     });
 });
